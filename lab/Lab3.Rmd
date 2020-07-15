@@ -1,0 +1,75 @@
+---
+title: 'Lab 3: Data Wrangling on Soccer Tournament Data'
+date: 'July 9, 2020'
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r setup, message = F, include=FALSE}
+library(tidyverse)
+```
+
+Soccer tournament data wrangling
+--------------------------
+Read the dataset of football games.
+```{r,warning=FALSE}
+setwd("D:/github/Rlab/")
+d <- read_csv("data/results.csv")
+```
+
+1. Select variables `date`, `home_team` and `away_team`.
+```{r}
+d1 = d %>% dplyr::select(date, home_team, away_team)
+```
+2. Subset games with **Brazil** as the home team.
+```{r}
+d2 = d1 %>% dplyr::filter(home_team == "Brazil")
+```
+
+3. Choose the games that Brazil won as the home team, and select variables `date`, `away_team` and `tournament`.
+```{r}
+d3 = d %>% dplyr::filter(home_team == "Brazil") %>%
+  dplyr::filter(home_score>away_score) %>%
+  dplyr::select(date, home_team, tournament)
+```
+
+4. Add the difference of goals, and an indicator variable called `goleada` for when the difference of goals is large,  and select what we did only for Brazil. **Hint: use `ifelse`**.
+```{r}
+d4 = d %>% dplyr::mutate(diff_goal = home_score-away_score)%>%
+  dplyr::mutate(goleada = ifelse(diff_goal >= 5|diff_goal<=-5, 1, 0)) %>%
+  dplyr::filter(home_team == "Brazil"|away_team == "Brazil")
+```
+
+5. What was the largest difference in goals within these games?
+```{r}
+
+```
+
+6. The top 5 goleadas?
+```{r}
+
+```
+7. Summary on goals scored by home teams, such as `mean` of `home_score` and `away_score`, `std`, using `group_by` and `summarise`
+```{r}
+d %>% dplyr::group_by(home_team)%>%
+  summarize(mean_homescore = mean(home_score))%>%
+  ungroup()
+d %>% dplyr::group_by(home_team)%>%
+  summarize(cont_awayscore = mean(away_score))%>%
+  ungroup()
+d %>% dplyr::group_by(home_team)%>%
+  summarize(std_homescore = sd(home_score))%>%
+  ungroup()
+```
+
+8. Proportion of victories of **Brazil** on different tournaments against each opponent, for instance, **Argentina**.
+```{r}
+d1 = d %>% dplyr::filter(home_team == "Brazil"|away_team == "Brazil")%>%
+  dplyr::mutate(against = ifelse(home_team == "Brazil",away_team,home_team))%>%
+  dplyr::mutate(all = 1)%>%
+  dplyr::mutate(win = ifelse(home_team == "Brazil",ifelse(home_score>away_score,1,0),ifelse(home_score<away_score,1,0)))
+
+
+d1%>% group_by(tournament,against)%>%
+  summarize(win_rate = sum(win)/sum(all))
+```

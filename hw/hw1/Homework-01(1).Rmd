@@ -23,7 +23,7 @@ Iowa.df[5,7]
 Iowa.df[2,]
 ```
 2. Syntax and class-typing.
-    a. For each of the following commands, either explain why they should be errors, or explain the non-erroneous result.
+a. For each of the following commands, either explain why they should be errors, or explain the non-erroneous result.
 
 
 vector1 <- c("5", "12", "7", "32"):non-erroneous because this is a simple assignment statement, c() Combine Values into a Vector or List, vector1 is a vector with 4 charactors.
@@ -36,7 +36,7 @@ sum(vector1): error because charactor can not be add. sum function only take num
 
 
 
-    b. For the next series of commands, either explain their results, or why they should produce errors.
+b. For the next series of commands, either explain their results, or why they should produce errors.
 
 vector2 <- c("5",7,12):output a vector with 3 charactor whose value are "5"  "7"  "12". the out put type of c() is determined from the highest type of the components in the hierarchy NULL < raw < logical < integer < double < complex < character < list < expression, and all arguments are coerced to a common type which is the type of the returned value.
 
@@ -88,11 +88,13 @@ colnames(table) <- c("sports","m","f")
 table = as.data.frame(table)
 for(i in 1:dim(ais)[1]){
     if(any(ais$sport[i]==table$sports)){
-            table[which(table$sports==ais$sport[i]),as.character(ais$sex[i])] = table[which(table$sports==ais$sport[i]),as.character(ais$sex[i])] + 1
+            table[which(table$sports==ais$sport[i]),as.character(ais$sex[i])] = 
+                table[which(table$sports==ais$sport[i]),as.character(ais$sex[i])] + 1
     }
     else{
         table = rbind(table, list(sports=ais$sport[i],m=0,f=0))
-        table[which(table$sports==ais$sport[i]),as.character(ais$sex[i])] = table[which(table$sports==ais$sport[i]),as.character(ais$sex[i])] + 1
+        table[which(table$sports==ais$sport[i]),as.character(ais$sex[i])] = 
+            table[which(table$sports==ais$sport[i]),as.character(ais$sex[i])] + 1
     }
 }
 table = table[2:11,]

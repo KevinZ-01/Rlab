@@ -27,10 +27,69 @@ Because of measurement error and sampling noise, we can't find find one value of
 \left(\left(\frac{P99}{P99.9}\right)^{-a+1} - 10\right)^2 + \left(\left(\frac{P99.5}{P99.9}\right)^{-a+1} - 5\right)^2 +  \left(\left(\frac{P99}{P99.5}\right)^{-a+1} - 2\right)^2
 \]
 Write a function, `percentile_ratio_discrepancies`, which takes as inputs `P99`, `P99.5`, `P99.9` and `a`, and returns the value of the expression above.  Check that when `P99=1e6`, `P99.5=2e6`, `P99.9=1e7` and `a=2`, your function returns `0`.
+```{r,warning=FALSE}
+library(magrittr)
+library(tidyverse)
+setwd("D:/github/Rlab/")
+wtid.report <- read.csv("data/wtid-report.csv")
+wtid.report_select = wtid.report %>%
+  select(Year,P99.income.threshold ,P99.5.income.threshold,P99.9.income.threshold)
+percentile_ratio_discrepancies<-function(p99,p99.5,p99.9,a){
+  loss = ((p99/p99.9)^(-a+1)-10)^2 + ((p99.5/p99.9)^(-a+1)-5)^2 + ((p99/p99.5)^(-a+1)-2)^2
+  return(loss)
+}
+percentile_ratio_discrepancies(p99=1e6 , p99.5=2e6 , p99.9=1e7,
+a=2)
+```
 
 2. Write a function, `exponent.multi_ratios_est`, which takes as inputs `P99`, `P99.5`, `P99.9`, and estimates `a`.  It should minimize your `percentile_ratio_discrepancies` function.  The starting value for the minimization should come from \eqref{eqn:exponent-from-quantile-ratio}.  Check that when `P99=1e6`, `P99.5=2e6` and `P99.9=1e7`, your function returns an `a` of 2.
+```{r}
+exponent.multi_ratios_est<-function(P99,P99.5,P99.9,a){
+  percentile_ratio_discrepancies_change<-function(A){
+    loss = percentile_ratio_discrepancies(P99,P99.5,P99.9,A)
+    return(loss) 
+    }
+  est = nlm(percentile_ratio_discrepancies_change,p=a)
+  return(est$estimate)
+}
+exponent.multi_ratios_est(P99=1e6 , P99.5=2e6 , P99.9=1e7,
+a=2)
+```
 
 3. Write a function which uses  `exponent.multi_ratios_est` to estimate $a$ for the US for every year from 1913 to 2012.  (There are many ways you could do thi, including loops.)  Plot the estimates; make sure the labels of the plot are appropriate.
+```{r}
+library(ggplot2)
+exponent.multi_ratios_est_vec<-function(P99,P99.5,P99.9){
+  a_initial = 1 - log(10)/log(P99/P99.9)
+  vec = rep(0,length(P99))
+  for(i in 1:length(P99)){
+    vec[i] = exponent.multi_ratios_est(P99[i],P99.5[i],P99.9[i],a_initial[i])
+  }
+  return(vec)
+}
+
+a_vec = exponent.multi_ratios_est_vec(wtid.report_select$P99.income.threshold,
+                                      wtid.report_select$P99.5.income.threshold,
+                                      wtid.report_select$P99.9.income.threshold)
+
+ggplot(data = data.frame(a_vec)) +
+  geom_point(aes(x = wtid.report_select$Year, y = a_vec))+
+  geom_smooth(aes(x = wtid.report_select$Year, y = a_vec),colour = 'yellow') + 
+  labs(title = "a~year",   y = "a",   x = "Year") +
+  theme_bw()
+```
 
 4. Use \eqref{eqn:exponent-from-quantile-ratio} to estimate $a$ for the US for every year.  Make a scatter-plot of these estimates against those from problem 3.  If they are identical or completely independent, something is wrong with at least one part of your code.  Otherwise, can you say anything about how the two estimates compare?
+```{r}
+a_ini = 1 - log(10)/log(wtid.report_select$P99.income.threshold/
+                          wtid.report_select$P99.9.income.threshold)
 
+ggplot(data = data.frame(a_vec)) +
+  geom_point(aes(x = wtid.report_select$Year, y = a_vec),colour = 'red')+
+  geom_point(aes(x = wtid.report_select$Year, y = a_ini),colour = 'blue')+
+  labs(title = "a~year",   y = "a",   x = "Year") +
+  theme_bw()
+
+plot(x=a_ini,y = a_vec)
+```
+There is a slight difference between two estimates. If P99:P99.5:P99.9=1:2:10, then two estimate are the same. 

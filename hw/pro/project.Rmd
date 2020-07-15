@@ -1,0 +1,192 @@
+---
+title: 'Project: Data analysis for New York weather'
+author: "Kaiwen Zhou 3170104135"
+date: "2020/7/12"
+output: pdf_document
+---
+## Introduction
+The dataset we analyze in this project is 'airquality', which is a dataset in library "datasets". This dataset record the air condition and weather condition of New York in 4 month. The dataset have 6 variables, two of which are month and day, the other 4 are ozone, solar radiation, wind, temperature, seperately. 
+Here is an overview of the dataset:
+
+```{r,echo=FALSE}
+library(datasets)
+air = airquality
+head(air)
+```
+
+## Tidy data and data visualization
+
+First, to make it more clearly to show the change of indexes in plot, we add a column showing the day. Second, we want to change the data type to dataframe, and remove the obervations that have NAs. Finally, we want to collect the month average of each index.
+
+```{r,warning=FALSE, echo = FALSE}
+library(magrittr)
+library(tidyverse)
+air = data.frame(air)
+
+air <- air %>% mutate(date = seq(1,dim(air)[1],1))
+air = na.omit(air)
+
+month_average_ozone <- air %>% group_by(Month) %>%
+  summarize(ave_ozone = mean(Ozone))
+
+month_average_solar <- air %>% group_by(Month) %>%
+  summarize(ave_solar = mean(Solar.R))
+
+month_average_Wind <- air %>% group_by(Month) %>%
+  summarize(ave_wind = mean(Wind))
+
+month_average_temp <- air %>% group_by(Month) %>%
+  summarize(ave_temp = mean(Temp))
+
+month_average = cbind(month_average_ozone,month_average_solar[,2],month_average_Wind[,2],month_average_temp[,2])
+
+month_average
+```
+
+Then we want to use ggplot to make the features of the data more clearly. First, we want to show the change of 4 indexes with time in one plot. 
+
+```{r, echo = FALSE}
+library(ggplot2)
+ggplot(data = air) +
+  geom_line(aes(x = date, y = Ozone,colour = "ozone"))+
+  geom_line(aes(x = date, y = Solar.R,colour = 'solar')) + 
+  geom_line(aes(x = date, y = Wind, colour = "wind")) +
+  geom_line(aes(x = date, y = Temp, colour = "temp"))+
+  labs(title = "indexes~date",   y = "indexes",   x = "date")+
+  theme_bw()
+
+```
+
+Then we show the change of 4 indexes with month, to see the difference between different monthes directly.
+
+```{r, echo = FALSE}
+ggplot(data = month_average) +
+  geom_line(aes(x = Month, y = ave_ozone,colour = "ozone"))+
+  geom_line(aes(x = Month, y = ave_solar,colour = 'solar')) + 
+  geom_line(aes(x = Month, y = ave_wind, colour = "wind")) +
+  geom_line(aes(x = Month, y = ave_temp, colour = "temp"))+
+  labs(title = "indexes~month",   y = "indexes",   x = "month")+
+  theme_bw()
+```
+
+We can see that the solar radiation raise from May to July, and decrease from July to September. Both temperature and ozone increase from May to August and decrease from August to September. The wind level doesn't change a lot from May to September.
+
+## Data analysis using statistic model
+
+In this part, we do research on 3 problems on this dataset using linear regression and hypothetical test.
+
+ \textbf{Problem1:The relation between ozone and other variables}
+
+```{r, echo = FALSE}
+#First we do a linear regression between ozone and other 3 variables.
+lm.all = lm(Ozone~Temp+Solar.R+Wind, data = air)
+summary(lm.all)
+```
+
+We can see that there is a siginificant positive correlation between ozone and temperature, solar radiation, and a siginificant negative correlation between ozone and wind. From professional knowledge we know that high temperature, strong solar radiation and poor atmospheric diffusion conditions are helpful to the produce of ozone, which can help explain the strong correlations.
+
+Then we try to use this model to predict ozone level, and plot the test data and prediction in one plot:
+
+```{r, echo = FALSE}
+train = seq(1,dim(air)[1],by=2)
+lm.ozone = lm(Ozone~Temp+Solar.R+Wind, data = air[train,])
+predict.ozone = predict(lm.ozone, newdata = air[-train,])
+
+ggplot(data = air[-train,]) +
+  geom_line(aes(x = date, y = Ozone,colour = "real"))+
+  geom_line(aes(x = date, y = predict.ozone,colour = 'predict'))+ 
+  labs(title = "ozone~date",   y = "ozone",   x = "date")+
+  theme_bw()
+```
+
+We can see that in most days, the prediction increase as real data increasing, but the exact value may be different. So, we can conclude that three predictors can explain the responsor, but there might be other factors which can influence the ozone level.  
+
+ \textbf{Problem2:Fit a distribution of ozone data}
+
+In this problem ,we will look into the distribution of the ozone level using nonparametric test.
+
+First, we have a look at the histogram of ozone.
+
+```{r,echo=FALSE}
+hist(air$Ozone)
+```
+
+We can see that the number of days decrease as the ozone level increase. Then we can try to fit a exponential distribution and a poisson distribution. 
+
+First, we try a exponential distribution, we use kolmogorov-Smirnov test and calibration plot to see if the fitting is right:
+
+```{r,echo=FALSE,warning = FALSE}
+mean.ozone = mean(air$Ozone)
+std.ozone = sd(air$Ozone)
+ks.test(air$Ozone,pexp,rate=1/mean.ozone)
+
+plot(ecdf(pexp(air$Ozone, rate=1/mean.ozone)),     main="Calibration of exponential distribution for ozones")
+abline(0,1,col="grey")
+
+```
+
+Then, we try a poisson distribution:
+
+```{r,echo=FALSE,warning = FALSE}
+ks.test(air$Ozone,ppois,lambda=mean.ozone)
+
+plot(ecdf(ppois(air$Ozone, lambda=mean.ozone)),     main="Calibration of poisson distribution for ozones")
+abline(0,1,col="grey")
+```
+
+We can see from kolmogorov-Smirnov test and calibration plot that exponential ditribution is more reasonable. 
+
+ \textbf{Problem3:The relationship between the quality of prediction and the selection of training set}
+
+In this part, we will use linear model based on problem1. and choose different training set to see how the selection of training set influence the quality of prediction. We will use a function to pack all the predction evaluation methods, who takes the training index vector as input, and output a list with mse and a plot. We will choose half of the data as training set.
+
+```{r,warning=FALSE}
+evaluate<-function(Train){
+  lm.ozone = lm(Ozone~Temp+Solar.R+Wind, data = air[Train,])
+  predict.ozone = predict(lm.ozone, newdata = air[-Train,])
+
+  plot = ggplot(data = air[-Train,]) +
+  geom_line(aes(x = date, y = Ozone,colour = "real"))+
+  geom_line(aes(x = date, y = predict.ozone,colour = 'predict'))+ 
+  labs(title = "ozone~date",   y = "ozone",   x = "date")+
+  theme_bw()
+  mse = mean((air$Ozone[-Train]-predict.ozone)^2)
+  return(list(mse,plot))
+}
+```
+
+First, we use the first half of the data as training set:
+```{r,warning=FALSE,echo=FALSE}
+train = seq(1,dim(air)[1]/2,1)
+evaluate(train)
+```
+
+Second, we select the second half of the data:
+```{r,warning=FALSE,echo=FALSE}
+train = seq(dim(air)[1]/2,dim(air)[1],1)
+res = evaluate(train)
+
+res[[1]]
+res[[2]]
+```
+
+Then we randomly select half of the data:
+```{r,echo=FALSE,warning=FALSE}
+set.seed(123)
+train = sample(dim(air)[1], dim(air)[1]/2)
+res = evaluate(train)
+
+res[[1]]
+res[[2]]
+```
+
+Finally, we take the interval as one to select half of the data:
+```{r,echo=FALSE,warning=FALSE}
+train = seq(1,dim(air)[1],2)
+res = evaluate(train)
+
+res[[1]]
+res[[2]]
+```
+
+We can see that taking the interval as one to select half of the data have the lowest predicting MSE. Although the differnence between results of different ways of selection is small, we still need to be careful about the way to choose training set. The best way will be random selection or fixed interval selection, which prevent the model from being influenced by the difference of the data caused by the order. Like in this dataset, the data might be correlated with some other variables related with time, and this will cause bias in the model if we select training data unevenly. 
